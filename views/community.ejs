@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Community | مسکێنەکان</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="navbar card">
+        <a class="brand" href="/">مسکێنەکان</a>
+        <div class="nav-links">
+          <a href="/">Home</a>
+          <a href="/community">Community</a>
+          <% if (currentUser && currentUser.role === "admin") { %>
+          <a href="/admin/users">Verify Users</a>
+          <% } %>
+          <form action="/logout" method="post"><button type="submit">Logout</button></form>
+        </div>
+      </nav>
+
+      <section class="card form-card">
+        <h2>Community Feed</h2>
+        <p class="subtitle">Post text and optional image link (ImgBB).</p>
+        <form class="form" action="/community/posts" method="post">
+          <label>
+            Post text
+            <textarea name="text" required maxlength="500" rows="4"></textarea>
+          </label>
+          <label>
+            Image URL (optional)
+            <input name="imageUrl" type="url" placeholder="https://i.ibb.co/..." />
+          </label>
+          <button type="submit">Post</button>
+        </form>
+      </section>
+
+      <section class="grid">
+        <% posts.forEach(function(post) { %>
+        <article class="card">
+          <p><strong>@<%= post.authorName %></strong></p>
+          <p><%= post.text %></p>
+          <% if (post.imageUrl) { %>
+          <img class="community-image" src="<%= post.imageUrl %>" alt="Post image" />
+          <% } %>
+        </article>
+        <% }); %>
+      </section>
+    </main>
+  </body>
+</html>

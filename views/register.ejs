@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register | مسکێنەکان</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="navbar card">
+        <a class="brand" href="/">مسکێنەکان</a>
+        <div class="nav-links">
+          <a href="/">Home</a>
+          <a href="/login">Login</a>
+        </div>
+      </nav>
+
+      <section class="card auth-card">
+        <h1>Register</h1>
+        <p class="subtitle">After registering, admin must verify you before login.</p>
+        <form class="form" action="/register" method="post">
+          <label>
+            Username
+            <input name="username" required type="text" />
+          </label>
+          <label>
+            Password
+            <input name="password" required type="password" minlength="6" />
+          </label>
+          <button type="submit">Create Account</button>
+          <% if (error) { %>
+          <p class="error"><%= error %></p>
+          <% } %>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

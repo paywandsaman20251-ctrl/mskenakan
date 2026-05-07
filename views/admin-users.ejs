@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify Users | مسکێنەکان</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="navbar card">
+        <a class="brand" href="/">مسکێنەکان</a>
+        <div class="nav-links">
+          <a href="/">Home</a>
+          <a href="/community">Community</a>
+          <form action="/logout" method="post"><button type="submit">Logout</button></form>
+        </div>
+      </nav>
+
+      <section class="card form-card">
+        <h2>Pending User Verification</h2>
+        <% if (pendingUsers.length === 0) { %>
+        <p class="empty">No pending users right now.</p>
+        <% } %>
+        <% pendingUsers.forEach(function(user) { %>
+        <div class="verify-row">
+          <span>@<%= user.username %></span>
+          <form action="/admin/users/<%= user._id %>/verify" method="post">
+            <button type="submit">Verify</button>
+          </form>
+        </div>
+        <% }); %>
+      </section>
+    </main>
+  </body>
+</html>
