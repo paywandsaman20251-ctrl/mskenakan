@@ -56,25 +56,23 @@ const postSchema = new mongoose.Schema(
 
 const User = mongoose.model("User", userSchema);
 const Post = mongoose.model("Post", postSchema);
+const assignableUserRoles = ["user", "msken", "shex", "bag", "admin"];
 
 const starterRoles = ["msken", "shex", "bag"];
 
 const starterMembers = [
   {
-    _id: "m1",
     name: "Shex",
     role: "shex",
     imageUrl: "https://i.ibb.co/nwZ9rtJ/shex.jpg"
   },
   {
-    _id: "m2",
     name: "Baag",
     role: "bag",
     imageUrl: "https://i.ibb.co/jRkGL6F/baag.jpg",
     imageText: "BAG POWER"
   },
   {
-    _id: "m3",
     name: "Msken",
     role: "msken",
     imageUrl: "https://i.ibb.co/c83T5mH/msken.jpg",
@@ -83,7 +81,10 @@ const starterMembers = [
 ];
 let useMemoryStore = false;
 let memoryRoles = [...starterRoles];
-let memoryMembers = [...starterMembers];
+let memoryMembers = starterMembers.map((member, index) => ({
+  ...member,
+  _id: `m${index + 1}`
+}));
 let memoryUsers = [];
 let memoryPosts = [];
 
@@ -326,6 +327,27 @@ app.get("/admin/users", requireAuth, requireAdmin, async (_req, res) => {
   res.render("admin-users", { pendingUsers });
 });
 
+app.get("/admin", requireAuth, requireAdmin, async (_req, res) => {
+  const pendingUsers = useMemoryStore
+    ? memoryUsers.filter((user) => !user.isVerified)
+    : await User.find({ isVerified: false }).sort({ createdAt: 1 }).lean();
+  const allUsers = useMemoryStore
+    ? [...memoryUsers].sort((a, b) => a.username.localeCompare(b.username))
+    : await User.find().select("username role isVerified createdAt").sort({ username: 1 }).lean();
+  const members = useMemoryStore
+    ? [...memoryMembers].sort((a, b) => a.name.localeCompare(b.name))
+    : await Member.find().sort({ name: 1, createdAt: 1 }).lean();
+  const roles = await getAvailableRoles();
+
+  res.render("admin-panel", {
+    pendingUsers,
+    allUsers,
+    userRoles: assignableUserRoles,
+    members,
+    roles
+  });
+});
+
 app.post("/admin/users/:id/verify", requireAuth, requireAdmin, async (req, res) => {
   const userId = req.params.id;
   if (useMemoryStore) {
@@ -335,7 +357,24 @@ app.post("/admin/users/:id/verify", requireAuth, requireAdmin, async (req, res) 
   } else {
     await User.findByIdAndUpdate(userId, { isVerified: true });
   }
-  return res.redirect("/admin/users");
+  return res.redirect("/admin");
+});
+
+app.post("/admin/users/:id/role", requireAuth, requireAdmin, async (req, res) => {
+  const userId = req.params.id;
+  const role = String(req.body.role || "").toLowerCase().trim();
+  if (!assignableUserRoles.includes(role)) {
+    return res.redirect("/admin");
+  }
+
+  if (useMemoryStore) {
+    memoryUsers = memoryUsers.map((item) =>
+      item._id === userId ? { ...item, role } : item
+    );
+  } else {
+    await User.findByIdAndUpdate(userId, { role });
+  }
+  return res.redirect("/admin");
 });
 
 app.post("/members", requireAuth, requireAdmin, async (req, res) => {
@@ -369,7 +408,7 @@ app.post("/members", requireAuth, requireAdmin, async (req, res) => {
       imageText: String(imageText || "").trim()
     });
   }
-  return res.redirect("/");
+  return res.redirect("/admin");
 });
 
 app.post("/members/:id/update", requireAuth, requireAdmin, async (req, res) => {
@@ -395,7 +434,7 @@ app.post("/members/:id/update", requireAuth, requireAdmin, async (req, res) => {
   } else {
     await Member.findByIdAndUpdate(memberId, updates);
   }
-  return res.redirect("/");
+  return res.redirect("/admin");
 });
 
 app.post("/members/:id/remove-image", requireAuth, requireAdmin, async (req, res) => {
@@ -407,7 +446,7 @@ app.post("/members/:id/remove-image", requireAuth, requireAdmin, async (req, res
   } else {
     await Member.findByIdAndUpdate(memberId, { imageUrl: "", imageText: "" });
   }
-  return res.redirect("/");
+  return res.redirect("/admin");
 });
 
 app.post("/members/:id/delete", requireAuth, requireAdmin, async (req, res) => {
@@ -417,7 +456,7 @@ app.post("/members/:id/delete", requireAuth, requireAdmin, async (req, res) => {
   } else {
     await Member.findByIdAndDelete(memberId);
   }
-  return res.redirect("/");
+  return res.redirect("/admin");
 });
 
 async function start() {
