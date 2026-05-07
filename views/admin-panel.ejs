@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Panel | مسکێنەکان</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="navbar card">
+        <a class="brand" href="/">مسکێنەکان</a>
+        <div class="nav-links">
+          <a href="/">Home</a>
+          <a href="/community">Community</a>
+          <a href="/admin">Admin Panel</a>
+          <form action="/logout" method="post"><button type="submit">Logout</button></form>
+        </div>
+      </nav>
+
+      <section class="card form-card">
+        <h2>Admin Controls</h2>
+        <p class="subtitle">Only admin can see and use this page.</p>
+      </section>
+
+      <section class="card form-card">
+        <h2>Verify Registered Users</h2>
+        <% if (pendingUsers.length === 0) { %>
+        <p class="empty">No pending users right now.</p>
+        <% } %>
+        <% pendingUsers.forEach(function(user) { %>
+        <div class="verify-row">
+          <span>@<%= user.username %></span>
+          <form action="/admin/users/<%= user._id %>/verify" method="post">
+            <button type="submit">Verify</button>
+          </form>
+        </div>
+        <% }); %>
+      </section>
+
+      <section class="card form-card">
+        <h2>Give User Roles</h2>
+        <% allUsers.forEach(function(user) { %>
+        <div class="verify-row">
+          <span>
+            @<%= user.username %> - <strong><%= user.role %></strong>
+            <% if (!user.isVerified) { %>(not verified)<% } %>
+          </span>
+          <form action="/admin/users/<%= user._id %>/role" method="post" class="role-form">
+            <select name="role">
+              <% userRoles.forEach(function(role) { %>
+              <option value="<%= role %>" <%= user.role === role ? "selected" : "" %>>
+                <%= role.toUpperCase() %>
+              </option>
+              <% }); %>
+            </select>
+            <button type="submit">Update Role</button>
+          </form>
+        </div>
+        <% }); %>
+      </section>
+
+      <section class="card form-card">
+        <h2>Add New Main Page Member Photo</h2>
+        <form action="/members" method="post" class="form">
+          <label>
+            Name
+            <input required name="name" type="text" />
+          </label>
+          <label>
+            Role
+            <select name="role">
+              <% roles.forEach(function(role) { %>
+              <option value="<%= role %>"><%= role.toUpperCase() %></option>
+              <% }); %>
+            </select>
+          </label>
+          <label>
+            Image URL
+            <input required name="imageUrl" type="url" placeholder="https://i.ibb.co/..." />
+          </label>
+          <label>
+            Text on Image
+            <input name="imageText" type="text" placeholder="Write text on image" />
+          </label>
+          <button type="submit">Add Member Photo</button>
+        </form>
+      </section>
+
+      <section class="card form-card">
+        <h2>Manage Main Page Photos</h2>
+        <div class="members">
+          <% members.forEach(function(member) { %>
+          <figure class="member">
+            <% if (member.imageUrl) { %>
+            <img src="<%= member.imageUrl %>" alt="<%= member.name %>" loading="lazy" />
+            <% } else { %>
+            <div class="no-image">No image</div>
+            <% } %>
+            <% if (member.imageText) { %>
+            <div class="image-text"><%= member.imageText %></div>
+            <% } %>
+            <figcaption>
+              <strong><%= member.name %></strong>
+              <span><%= member.role %></span>
+              <form action="/members/<%= member._id %>/update" method="post" class="mini-form">
+                <input name="name" type="text" value="<%= member.name %>" required />
+                <select name="role">
+                  <% roles.forEach(function(role) { %>
+                  <option value="<%= role %>" <%= member.role === role ? "selected" : "" %>>
+                    <%= role.toUpperCase() %>
+                  </option>
+                  <% }); %>
+                </select>
+                <input name="imageUrl" type="url" value="<%= member.imageUrl || "" %>" />
+                <input name="imageText" type="text" value="<%= member.imageText || "" %>" />
+                <button type="submit">Save</button>
+              </form>
+              <form action="/members/<%= member._id %>/remove-image" method="post">
+                <button type="submit">Remove Image</button>
+              </form>
+              <form action="/members/<%= member._id %>/delete" method="post">
+                <button type="submit">Delete Card</button>
+              </form>
+            </figcaption>
+          </figure>
+          <% }); %>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
