@@ -283,6 +283,12 @@ button:hover {
   margin-top: 0.6rem;
 }
 
+.role-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 @keyframes pop {
   0%,
   100% {
