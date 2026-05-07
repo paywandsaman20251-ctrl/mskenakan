@@ -1,0 +1,25 @@
+{
+  "name": "msken-friend-group",
+  "version": "1.0.0",
+  "description": "Fun friend group website with MongoDB image links",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "friends",
+    "mongodb",
+    "express"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.6.1",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "mongoose": "^8.19.2"
+  }
+}
