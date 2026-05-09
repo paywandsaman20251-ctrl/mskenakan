@@ -23,7 +23,7 @@
 
       <section class="card form-card">
         <h2>Community Feed</h2>
-        <p class="subtitle">Post text and an optional image. Uploads are stored on the server so everyone can see them.</p>
+        <p class="subtitle">Post text and an optional image. Files are saved on this server as <strong>/uploads/…</strong> so every device loads them from the same site. If you use “image link”, paste a normal https URL (not a localhost address from your browser).</p>
         <form class="form" action="/community/posts" method="post" enctype="multipart/form-data">
           <label>
             Post text
@@ -54,7 +54,7 @@
           </header>
           <p class="<%= post.authorName === todBotName ? 'tod-bot-text' : '' %>"><%= post.text %></p>
           <% if (post.imageUrl) { %>
-          <img class="community-image" src="<%= post.imageUrl %>" alt="Post image" />
+          <img class="community-image" src="<%= normalizeImageUrl(post.imageUrl) %>" alt="Post image" />
           <% } %>
         </article>
         <% }); %>

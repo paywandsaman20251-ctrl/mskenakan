@@ -99,7 +99,7 @@
           <% members.forEach(function(member) { %>
           <figure class="member">
             <% if (member.imageUrl) { %>
-            <img src="<%= member.imageUrl %>" alt="<%= member.name %>" loading="lazy" />
+            <img src="<%= normalizeImageUrl(member.imageUrl) %>" alt="<%= member.name %>" loading="lazy" />
             <% } else { %>
             <div class="no-image">No image</div>
             <% } %>
