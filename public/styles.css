@@ -13,18 +13,42 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
 body {
   margin: 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: var(--text);
   background: radial-gradient(circle at top, #1a2050 0%, var(--bg) 42%, #02040f 100%);
   min-height: 100vh;
+  overflow-x: clip;
 }
 
 .page {
-  width: min(1100px, 92%);
+  width: min(1100px, 100%);
   margin: 0 auto;
-  padding: 2.5rem 0 3rem;
+  padding-top: max(1.5rem, env(safe-area-inset-top));
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+h1,
+h2,
+h3,
+p,
+.subtitle {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .navbar {
@@ -93,7 +117,12 @@ body {
 .grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.grid > *,
+.members > * {
+  min-width: 0;
 }
 
 .card {
@@ -122,7 +151,7 @@ body {
 .members {
   display: grid;
   gap: 0.8rem;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
 }
 
 .member {
@@ -141,6 +170,7 @@ body {
 
 .member img {
   width: 100%;
+  max-height: 240px;
   height: 170px;
   object-fit: cover;
   display: block;
@@ -175,6 +205,7 @@ body {
   flex-direction: column;
   gap: 0.2rem;
   padding: 0.6rem 0.7rem 0.8rem;
+  min-width: 0;
 }
 
 .member span {
@@ -203,17 +234,9 @@ body {
 }
 
 .auth-card {
+  width: 100%;
   max-width: 520px;
   margin: 0 auto;
-}
-
-textarea {
-  background: #0d1230;
-  color: var(--text);
-  border-radius: 10px;
-  border: 1px solid #ffffff2b;
-  padding: 0.7rem 0.75rem;
-  font: inherit;
 }
 
 label {
@@ -224,26 +247,37 @@ label {
 
 input,
 select,
-button {
+textarea {
   font: inherit;
   border-radius: 10px;
   border: 1px solid #ffffff2b;
   padding: 0.7rem 0.75rem;
-}
-
-input,
-select {
   background: #0d1230;
   color: var(--text);
 }
 
+.form input:not([type="file"]),
+.form textarea,
+.form select,
+.mini-form input:not([type="file"]),
+.mini-form select,
+.mini-form textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 button {
   border: none;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   color: #fff;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.15s ease;
+  touch-action: manipulation;
+  min-height: 2.75rem;
 }
 
 button:hover {
@@ -290,5 +324,108 @@ button:hover {
   }
   50% {
     transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 768px) {
+  input:not([type="file"]),
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+
+  .nav-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0.15rem 0;
+  }
+
+  .navbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .brand {
+    font-size: clamp(1.05rem, 4.5vw, 1.3rem);
+  }
+
+  .nav-links {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.5rem 0.65rem;
+  }
+
+  .nav-links form {
+    flex: 1 1 auto;
+    min-width: 5rem;
+    max-width: 100%;
+  }
+
+  .nav-links form button {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .hero-title {
+    font-size: clamp(2.75rem, 18vw, 9rem);
+  }
+
+  .verify-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .verify-row form {
+    width: 100%;
+  }
+
+  .verify-row form button {
+    width: 100%;
+  }
+
+  .role-form {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .role-form select,
+  .role-form button {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .card:hover,
+  .member:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+
+  .members {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  }
+
+  .member img,
+  .no-image {
+    height: 150px;
+  }
+
+  h1 {
+    font-size: clamp(1.35rem, 6vw, 1.75rem);
+  }
+
+  .form-card h2,
+  .card h2 {
+    font-size: clamp(1.1rem, 5vw, 1.35rem);
   }
 }
