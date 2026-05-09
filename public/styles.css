@@ -178,6 +178,11 @@ p,
   display: block;
 }
 
+.member img.member-photo {
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .no-image {
   width: 100%;
   height: 170px;
@@ -590,4 +595,87 @@ button:hover {
   .card h2 {
     font-size: clamp(1.1rem, 5vw, 1.35rem);
   }
+}
+
+/* Home page: tap photo for fullscreen */
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.93);
+  align-items: center;
+  justify-content: center;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+  box-sizing: border-box;
+}
+
+.photo-lightbox[hidden] {
+  display: none !important;
+}
+
+.photo-lightbox:not([hidden]) {
+  display: flex;
+}
+
+.photo-lightbox-img {
+  max-width: 100%;
+  max-height: min(92vh, 100%);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+}
+
+.photo-lightbox-close {
+  position: absolute;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  width: 2.75rem;
+  height: 2.75rem;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.65rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 10001;
+  touch-action: manipulation;
+}
+
+.photo-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.community-toast {
+  position: fixed;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9998;
+  max-width: min(94vw, 380px);
+  padding: 0.65rem 1rem;
+  border-radius: 14px;
+  background: #1a2048;
+  color: var(--text);
+  border: 1px solid #ffffff28;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  text-align: center;
+  animation: toast-in 0.28s ease;
+  pointer-events: none;
 }
