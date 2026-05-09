@@ -5,7 +5,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const session = require("express-session");
-const MongoStore = require("connect-mongo");
+const { MongoStore } = require("connect-mongo");
 const bcrypt = require("bcryptjs");
 const multer = require("multer");
 
