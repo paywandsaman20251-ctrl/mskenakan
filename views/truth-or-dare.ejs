@@ -6,7 +6,7 @@
     <title>Truth or Dare Pool | مسکێنەکان</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
+  <body<% if (currentUser) { %> data-username="<%= currentUser.username %>"<% } %>>
     <main class="page">
       <nav class="navbar card">
         <a class="brand" href="/">مسکێنەکان</a>
@@ -73,5 +73,8 @@
         </ul>
       </section>
     </main>
+    <% if (currentUser) { %>
+    <script src="/community-notify.js" defer></script>
+    <% } %>
   </body>
 </html>
