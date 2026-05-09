@@ -121,8 +121,27 @@ const postSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const todPromptSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ["truth", "dare"], required: true, lowercase: true },
+    text: { type: String, required: true, trim: true, maxlength: 280 },
+    submittedBy: { type: String, required: true, trim: true, lowercase: true }
+  },
+  { timestamps: true }
+);
+
 const User = mongoose.model("User", userSchema);
 const Post = mongoose.model("Post", postSchema);
+const TodPrompt = mongoose.model("TodPrompt", todPromptSchema);
+
+const TOD_BOT_NAME = "TruthOrDareBot";
+
+const STARTER_TOD_PROMPTS = [
+  { type: "truth", text: "What is one thing you have never told anyone here?", submittedBy: "system" },
+  { type: "truth", text: "Who in this group would you swap lives with for a day?", submittedBy: "system" },
+  { type: "dare", text: "Do your best impression of someone in the group.", submittedBy: "system" },
+  { type: "dare", text: "Speak only in questions for the next 5 minutes.", submittedBy: "system" }
+];
 const assignableUserRoles = ["user", "msken", "shex", "bag", "admin"];
 
 const starterRoles = ["msken", "shex", "bag"];
@@ -154,6 +173,7 @@ let memoryMembers = starterMembers.map((member, index) => ({
 }));
 let memoryUsers = [];
 let memoryPosts = [];
+let memoryPrompts = [];
 
 async function seedData() {
   const roleCount = await Role.countDocuments();
@@ -185,6 +205,11 @@ async function seedData() {
       role: "admin"
     });
   }
+
+  const todCount = await TodPrompt.countDocuments();
+  if (todCount === 0) {
+    await TodPrompt.insertMany(STARTER_TOD_PROMPTS);
+  }
 }
 
 app.set("view engine", "ejs");
@@ -203,6 +228,7 @@ app.use(
 );
 
 app.use(async (req, res, next) => {
+  res.locals.todBotName = TOD_BOT_NAME;
   res.locals.currentUser = null;
   if (!req.session.userId) return next();
 
@@ -242,6 +268,68 @@ function requireAdmin(req, res, next) {
     return res.status(403).send("Admins only.");
   }
   return next();
+}
+
+async function runTruthOrDareBot() {
+  try {
+    let users;
+    let truths;
+    let dares;
+    if (useMemoryStore) {
+      users = memoryUsers.filter((u) => u.isVerified);
+      truths = memoryPrompts.filter((p) => p.type === "truth");
+      dares = memoryPrompts.filter((p) => p.type === "dare");
+    } else {
+      users = await User.find({ isVerified: true }).select("username").lean();
+      truths = await TodPrompt.find({ type: "truth" }).lean();
+      dares = await TodPrompt.find({ type: "dare" }).lean();
+    }
+
+    if (users.length === 0) return;
+
+    let useTruth = Math.random() < 0.5;
+    let pool = useTruth ? truths : dares;
+    if (pool.length === 0) {
+      pool = useTruth ? dares : truths;
+      useTruth = !useTruth;
+    }
+    if (pool.length === 0) return;
+
+    const user = users[Math.floor(Math.random() * users.length)];
+    const prompt = pool[Math.floor(Math.random() * pool.length)];
+    const label = useTruth ? "TRUTH" : "DARE";
+    let text = `🎲 Truth or Dare — @${user.username} was picked!\n\n${label}: ${prompt.text}`;
+    if (text.length > 500) {
+      text = text.slice(0, 497) + "...";
+    }
+
+    if (useMemoryStore) {
+      memoryPosts.unshift({
+        _id: `tod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        authorName: TOD_BOT_NAME,
+        text,
+        imageUrl: "",
+        createdAt: new Date()
+      });
+    } else {
+      await Post.create({
+        authorName: TOD_BOT_NAME,
+        text,
+        imageUrl: ""
+      });
+    }
+  } catch (err) {
+    console.warn("[TruthOrDareBot]", err.message || err);
+  }
+}
+
+function scheduleTruthOrDareBot() {
+  const minutes = Number(process.env.TRUTH_OR_DARE_INTERVAL_MINUTES);
+  const intervalMs = Math.max(60000, (Number.isFinite(minutes) && minutes > 0 ? minutes : 360) * 60 * 1000);
+  setInterval(runTruthOrDareBot, intervalMs);
+  console.log(
+    `[TruthOrDareBot] Scheduled every ${Math.round(intervalMs / 60000)} min (set TRUTH_OR_DARE_INTERVAL_MINUTES to change).`
+  );
 }
 
 app.get("/", async (_req, res) => {
@@ -387,6 +475,70 @@ app.post("/community/posts", requireAuth, upload.single("image"), async (req, re
       imageUrl
     });
   }
+  return res.redirect("/community");
+});
+
+app.post("/community/posts/:id/delete", requireAuth, requireAdmin, async (req, res) => {
+  const postId = req.params.id;
+  try {
+    if (useMemoryStore) {
+      const post = memoryPosts.find((p) => String(p._id) === String(postId));
+      if (post && post.imageUrl) deleteLocalUpload(post.imageUrl);
+      memoryPosts = memoryPosts.filter((p) => String(p._id) !== String(postId));
+    } else {
+      const deleted = await Post.findOneAndDelete({ _id: postId }).lean();
+      if (deleted && deleted.imageUrl) deleteLocalUpload(deleted.imageUrl);
+    }
+  } catch (_err) {
+    /* invalid id or DB error — still return to feed */
+  }
+  return res.redirect("/community");
+});
+
+app.get("/truth-or-dare", requireAuth, async (_req, res) => {
+  let truthCount;
+  let dareCount;
+  let recent;
+  if (useMemoryStore) {
+    truthCount = memoryPrompts.filter((p) => p.type === "truth").length;
+    dareCount = memoryPrompts.filter((p) => p.type === "dare").length;
+    recent = [...memoryPrompts]
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .slice(0, 20);
+  } else {
+    truthCount = await TodPrompt.countDocuments({ type: "truth" });
+    dareCount = await TodPrompt.countDocuments({ type: "dare" });
+    recent = await TodPrompt.find().sort({ createdAt: -1 }).limit(20).lean();
+  }
+  res.render("truth-or-dare", { truthCount, dareCount, recent });
+});
+
+app.post("/truth-or-dare/prompts", requireAuth, async (req, res) => {
+  const type = String(req.body.type || "").toLowerCase().trim();
+  const text = String(req.body.text || "").trim();
+  if (!["truth", "dare"].includes(type) || !text) {
+    return res.redirect("/truth-or-dare");
+  }
+  if (text.length > 280) {
+    return res.redirect("/truth-or-dare");
+  }
+  const submittedBy = res.locals.currentUser.username;
+  if (useMemoryStore) {
+    memoryPrompts.push({
+      _id: `p-${Date.now()}`,
+      type,
+      text,
+      submittedBy,
+      createdAt: new Date()
+    });
+  } else {
+    await TodPrompt.create({ type, text, submittedBy });
+  }
+  return res.redirect("/truth-or-dare");
+});
+
+app.post("/admin/truth-or-dare/run-now", requireAuth, requireAdmin, async (_req, res) => {
+  await runTruthOrDareBot();
   return res.redirect("/community");
 });
 
@@ -618,8 +770,19 @@ async function start() {
     console.warn(`MongoDB unavailable (${error.message}). Running with in-memory data.`);
   }
 
+  if (useMemoryStore && memoryPrompts.length === 0) {
+    memoryPrompts = STARTER_TOD_PROMPTS.map((p, i) => ({
+      _id: `tp-${i + 1}`,
+      type: p.type,
+      text: p.text,
+      submittedBy: p.submittedBy,
+      createdAt: new Date()
+    }));
+  }
+
   app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
+    scheduleTruthOrDareBot();
   });
 }
 
