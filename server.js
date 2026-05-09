@@ -1,13 +1,80 @@
 const path = require("path");
+const crypto = require("crypto");
+const fs = require("fs");
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
+const multer = require("multer");
 
 dotenv.config();
 
 const app = express();
+const uploadsDir = path.join(__dirname, "uploads");
+fs.mkdirSync(uploadsDir, { recursive: true });
+
+const allowedImageMime = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+function extFromMime(mime) {
+  const map = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp"
+  };
+  return map[mime] || ".jpg";
+}
+
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    cb(null, `${crypto.randomUUID()}${extFromMime(file.mimetype)}`);
+  }
+});
+
+const upload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (allowedImageMime.has(file.mimetype)) return cb(null, true);
+    const err = new Error("INVALID_IMAGE_TYPE");
+    err.code = "INVALID_IMAGE_TYPE";
+    cb(err);
+  }
+});
+
+function deleteLocalUpload(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== "string" || !imageUrl.startsWith("/uploads/")) return;
+  const basename = path.basename(imageUrl);
+  if (!basename || basename.includes("..")) return;
+  const full = path.join(uploadsDir, basename);
+  fs.unlink(full, () => {});
+}
+
+function safeExternalImageUrl(raw) {
+  const u = String(raw || "").trim();
+  if (!u) return "";
+  if (!/^https?:\/\//i.test(u)) return "";
+  try {
+    const parsed = new URL(u);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return u;
+  } catch (_e) {
+    return "";
+  }
+}
+
+/** Uploaded file wins; otherwise optional http(s) URL from the form. */
+function resolvePostImageUrl(req) {
+  if (req.file) return `/uploads/${req.file.filename}`;
+  return safeExternalImageUrl(req.body.imageUrl);
+}
+
+function resolveMemberImageUrl(req) {
+  if (req.file) return `/uploads/${req.file.filename}`;
+  return safeExternalImageUrl(req.body.imageUrl);
+}
 const port = process.env.PORT || 3000;
 const mongoUri = process.env.MONGODB_URI;
 
@@ -125,6 +192,7 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(uploadsDir));
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "msken-secret-key-change-this",
@@ -295,26 +363,28 @@ app.get("/community", requireAuth, async (_req, res) => {
   res.render("community", { posts });
 });
 
-app.post("/community/posts", requireAuth, async (req, res) => {
-  const { text, imageUrl } = req.body;
+app.post("/community/posts", requireAuth, upload.single("image"), async (req, res) => {
+  const text = req.body.text;
   if (!text || !String(text).trim()) {
+    if (req.file) deleteLocalUpload(`/uploads/${req.file.filename}`);
     return res.redirect("/community");
   }
 
+  const imageUrl = resolvePostImageUrl(req);
   const authorName = res.locals.currentUser.username;
   if (useMemoryStore) {
     memoryPosts.unshift({
       _id: `${Date.now()}`,
       authorName,
       text: String(text).trim(),
-      imageUrl: String(imageUrl || "").trim(),
+      imageUrl,
       createdAt: new Date()
     });
   } else {
     await Post.create({
       authorName,
       text: String(text).trim(),
-      imageUrl: String(imageUrl || "").trim()
+      imageUrl
     });
   }
   return res.redirect("/community");
@@ -377,17 +447,20 @@ app.post("/admin/users/:id/role", requireAuth, requireAdmin, async (req, res) =>
   return res.redirect("/admin");
 });
 
-app.post("/members", requireAuth, requireAdmin, async (req, res) => {
-  const { name, role, imageUrl, imageText } = req.body;
+app.post("/members", requireAuth, requireAdmin, upload.single("image"), async (req, res) => {
+  const { name, role, imageText } = req.body;
+  const imageUrl = resolveMemberImageUrl(req);
 
   if (!name || !role || !imageUrl) {
-    return res.status(400).redirect("/");
+    if (req.file) deleteLocalUpload(`/uploads/${req.file.filename}`);
+    return res.redirect("/admin");
   }
 
   const safeRole = String(role).toLowerCase().trim();
   const roles = await getAvailableRoles();
   if (!roles.includes(safeRole)) {
-    return res.status(400).redirect("/");
+    if (req.file) deleteLocalUpload(`/uploads/${req.file.filename}`);
+    return res.redirect("/admin");
   }
 
   let member;
@@ -411,19 +484,54 @@ app.post("/members", requireAuth, requireAdmin, async (req, res) => {
   return res.redirect("/admin");
 });
 
-app.post("/members/:id/update", requireAuth, requireAdmin, async (req, res) => {
+app.post("/members/:id/update", requireAuth, requireAdmin, upload.single("image"), async (req, res) => {
   const memberId = req.params.id;
-  const { name, role, imageUrl, imageText } = req.body;
+  const { name, role, imageText } = req.body;
   const safeRole = String(role || "").toLowerCase().trim();
   const roles = await getAvailableRoles();
   if (!name || !safeRole || !roles.includes(safeRole)) {
-    return res.redirect("/");
+    if (req.file) deleteLocalUpload(`/uploads/${req.file.filename}`);
+    return res.redirect("/admin");
+  }
+
+  let existing = null;
+  if (useMemoryStore) {
+    existing = memoryMembers.find((m) => String(m._id) === String(memberId)) || null;
+  } else {
+    existing = await Member.findById(memberId).lean();
+  }
+  if (!existing) {
+    if (req.file) deleteLocalUpload(`/uploads/${req.file.filename}`);
+    return res.redirect("/admin");
+  }
+
+  let nextImageUrl;
+  if (req.file) {
+    deleteLocalUpload(existing.imageUrl);
+    nextImageUrl = `/uploads/${req.file.filename}`;
+  } else {
+    const raw = String(req.body.imageUrl || "").trim();
+    if (!raw) {
+      nextImageUrl = existing.imageUrl || "";
+    } else if (raw.startsWith("/uploads/")) {
+      nextImageUrl = raw === existing.imageUrl ? raw : existing.imageUrl || "";
+    } else {
+      const ext = safeExternalImageUrl(raw);
+      if (ext) {
+        if (ext !== existing.imageUrl && existing.imageUrl && existing.imageUrl.startsWith("/uploads/")) {
+          deleteLocalUpload(existing.imageUrl);
+        }
+        nextImageUrl = ext;
+      } else {
+        nextImageUrl = existing.imageUrl || "";
+      }
+    }
   }
 
   const updates = {
     name: String(name).trim(),
     role: safeRole,
-    imageUrl: String(imageUrl || "").trim(),
+    imageUrl: nextImageUrl,
     imageText: String(imageText || "").trim()
   };
 
@@ -440,10 +548,14 @@ app.post("/members/:id/update", requireAuth, requireAdmin, async (req, res) => {
 app.post("/members/:id/remove-image", requireAuth, requireAdmin, async (req, res) => {
   const memberId = req.params.id;
   if (useMemoryStore) {
-    memoryMembers = memoryMembers.map((member) =>
-      String(member._id) === String(memberId) ? { ...member, imageUrl: "", imageText: "" } : member
+    const member = memoryMembers.find((m) => String(m._id) === String(memberId));
+    if (member) deleteLocalUpload(member.imageUrl);
+    memoryMembers = memoryMembers.map((m) =>
+      String(m._id) === String(memberId) ? { ...m, imageUrl: "", imageText: "" } : m
     );
   } else {
+    const member = await Member.findById(memberId).lean();
+    if (member) deleteLocalUpload(member.imageUrl);
     await Member.findByIdAndUpdate(memberId, { imageUrl: "", imageText: "" });
   }
   return res.redirect("/admin");
@@ -452,11 +564,28 @@ app.post("/members/:id/remove-image", requireAuth, requireAdmin, async (req, res
 app.post("/members/:id/delete", requireAuth, requireAdmin, async (req, res) => {
   const memberId = req.params.id;
   if (useMemoryStore) {
-    memoryMembers = memoryMembers.filter((member) => String(member._id) !== String(memberId));
+    const member = memoryMembers.find((m) => String(m._id) === String(memberId));
+    if (member) deleteLocalUpload(member.imageUrl);
+    memoryMembers = memoryMembers.filter((m) => String(m._id) !== String(memberId));
   } else {
+    const member = await Member.findById(memberId).lean();
+    if (member) deleteLocalUpload(member.imageUrl);
     await Member.findByIdAndDelete(memberId);
   }
   return res.redirect("/admin");
+});
+
+app.use((err, req, res, next) => {
+  if (err && err.code === "INVALID_IMAGE_TYPE") {
+    return res.status(400).send("Only JPEG, PNG, GIF, and WebP images are allowed.");
+  }
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).send("Image must be 5 MB or smaller.");
+    }
+    return res.status(400).send("Could not process the upload.");
+  }
+  next(err);
 });
 
 async function start() {
