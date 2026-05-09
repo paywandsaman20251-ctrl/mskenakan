@@ -15,7 +15,7 @@
           <% if (currentUser) { %>
           <a href="/community">Community</a>
           <% if (currentUser.role === "admin") { %>
-          <a href="/admin/users">Verify Users</a>
+          <a href="/admin">Admin Panel</a>
           <% } %>
           <form action="/logout" method="post"><button type="submit">Logout</button></form>
           <% } else { %>
@@ -26,13 +26,10 @@
       </nav>
 
       <header class="hero">
-        <p class="badge">🤣 Coolest Friend Group Ever</p>
         <h1 class="hero-title">مسکێنەکان</h1>
-        <p class="subtitle">
-          Shex and Baag rule the kingdom with maximum drama. Msken and the Mskenms
-          are on mission mode. Add your funniest members using ImgBB links.
+        <p class="subtitle" dir="rtl" lang="ku">
+          مسکێنەکان رێزی گەورەکانتان بگرن
         </p>
-        <p class="joke-line">Warning: Too much style may cause legendary friendship energy.</p>
       </header>
 
       <section class="card role-card">
@@ -54,27 +51,6 @@
             <figcaption>
               <strong><%= member.name %></strong>
               <span><%= member.role %></span>
-              <% if (currentUser && currentUser.role === "admin") { %>
-              <form action="/members/<%= member._id %>/update" method="post" class="mini-form">
-                <input name="name" type="text" value="<%= member.name %>" required />
-                <select name="role">
-                  <% roles.forEach(function(role) { %>
-                  <option value="<%= role %>" <%= member.role === role ? "selected" : "" %>>
-                    <%= role.toUpperCase() %>
-                  </option>
-                  <% }); %>
-                </select>
-                <input name="imageUrl" type="url" value="<%= member.imageUrl %>" placeholder="Image URL" />
-                <input name="imageText" type="text" value="<%= member.imageText || "" %>" placeholder="Write on image" />
-                <button type="submit">Save</button>
-              </form>
-              <form action="/members/<%= member._id %>/remove-image" method="post">
-                <button type="submit">Remove Image</button>
-              </form>
-              <form action="/members/<%= member._id %>/delete" method="post">
-                <button type="submit">Delete Card</button>
-              </form>
-              <% } %>
             </figcaption>
           </figure>
           <% }); %>
@@ -100,61 +76,11 @@
             <figcaption>
               <strong><%= member.name %></strong>
               <span><%= member.role %></span>
-              <% if (currentUser && currentUser.role === "admin") { %>
-              <form action="/members/<%= member._id %>/update" method="post" class="mini-form">
-                <input name="name" type="text" value="<%= member.name %>" required />
-                <select name="role">
-                  <% roles.forEach(function(role) { %>
-                  <option value="<%= role %>" <%= member.role === role ? "selected" : "" %>>
-                    <%= role.toUpperCase() %>
-                  </option>
-                  <% }); %>
-                </select>
-                <input name="imageUrl" type="url" value="<%= member.imageUrl %>" placeholder="Image URL" />
-                <input name="imageText" type="text" value="<%= member.imageText || "" %>" placeholder="Write on image" />
-                <button type="submit">Save</button>
-              </form>
-              <form action="/members/<%= member._id %>/remove-image" method="post">
-                <button type="submit">Remove Image</button>
-              </form>
-              <form action="/members/<%= member._id %>/delete" method="post">
-                <button type="submit">Delete Card</button>
-              </form>
-              <% } %>
             </figcaption>
           </figure>
           <% }); %>
         </div>
       </section>
-
-      <% if (currentUser && currentUser.role === "admin") { %>
-      <section class="card form-card">
-        <h2>Admin: Add Member Photo</h2>
-        <form action="/members" method="post" class="form">
-          <label>
-            Name
-            <input required name="name" type="text" placeholder="Example: New Msken" />
-          </label>
-          <label>
-            Role
-            <select name="role">
-              <% roles.forEach(function(role) { %>
-              <option value="<%= role %>"><%= role.toUpperCase() %></option>
-              <% }); %>
-            </select>
-          </label>
-          <label>
-            Image URL (ImgBB)
-            <input required name="imageUrl" type="url" placeholder="https://i.ibb.co/..." />
-          </label>
-          <label>
-            Text on Image
-            <input name="imageText" type="text" placeholder="Example: BAG BOSS" />
-          </label>
-          <button type="submit">Add Photo</button>
-        </form>
-      </section>
-      <% } %>
     </main>
   </body>
 </html>
