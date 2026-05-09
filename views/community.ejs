@@ -13,6 +13,7 @@
         <div class="nav-links">
           <a href="/">Home</a>
           <a href="/community">Community</a>
+          <a href="/truth-or-dare">Truth or Dare</a>
           <% if (currentUser && currentUser.role === "admin") { %>
           <a href="/admin">Admin Panel</a>
           <% } %>
@@ -42,9 +43,16 @@
 
       <section class="grid">
         <% posts.forEach(function(post) { %>
-        <article class="card">
-          <p><strong>@<%= post.authorName %></strong></p>
-          <p><%= post.text %></p>
+        <article class="card community-post <%= post.authorName === todBotName ? 'tod-bot-post' : '' %>">
+          <header class="post-header">
+            <p class="post-author"><strong>@<%= post.authorName %></strong></p>
+            <% if (currentUser && currentUser.role === "admin") { %>
+            <form action="/community/posts/<%= post._id %>/delete" method="post" class="post-delete-form">
+              <button type="submit" class="btn-delete">Delete</button>
+            </form>
+            <% } %>
+          </header>
+          <p class="<%= post.authorName === todBotName ? 'tod-bot-text' : '' %>"><%= post.text %></p>
           <% if (post.imageUrl) { %>
           <img class="community-image" src="<%= post.imageUrl %>" alt="Post image" />
           <% } %>

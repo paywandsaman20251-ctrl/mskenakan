@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Truth or Dare Pool | مسکێنەکان</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="navbar card">
+        <a class="brand" href="/">مسکێنەکان</a>
+        <div class="nav-links">
+          <a href="/">Home</a>
+          <a href="/community">Community</a>
+          <a href="/truth-or-dare">Truth or Dare</a>
+          <% if (currentUser.role === "admin") { %>
+          <a href="/admin">Admin Panel</a>
+          <% } %>
+          <form action="/logout" method="post"><button type="submit">Logout</button></form>
+        </div>
+      </nav>
+
+      <section class="card form-card">
+        <h2>Truth or Dare pool</h2>
+        <p class="subtitle">
+          Everyone who can log in may add prompts here. The bot picks a <strong>random verified account</strong>,
+          then chooses <strong>truth or dare</strong> at random, then picks a <strong>random question</strong> from that pool.
+          New rounds appear automatically on the <a href="/community">Community</a> feed as posts from
+          <strong>@<%= todBotName %></strong>.
+        </p>
+        <p class="tod-stats">
+          <span><strong><%= truthCount %></strong> truth prompts</span>
+          <span><strong><%= dareCount %></strong> dare prompts</span>
+        </p>
+      </section>
+
+      <section class="card form-card">
+        <h3>Add a prompt</h3>
+        <form class="form" action="/truth-or-dare/prompts" method="post">
+          <label>
+            Type
+            <select name="type" required>
+              <option value="truth">Truth</option>
+              <option value="dare">Dare</option>
+            </select>
+          </label>
+          <label>
+            Question or challenge (max 280 characters)
+            <textarea name="text" required maxlength="280" rows="3" placeholder="What you want people to answer or do"></textarea>
+          </label>
+          <button type="submit">Save to pool</button>
+        </form>
+      </section>
+
+      <% if (currentUser.role === "admin") { %>
+      <section class="card form-card">
+        <h3>Admin</h3>
+        <p class="subtitle">Post one bot round immediately (same logic as the timer).</p>
+        <form class="form" action="/admin/truth-or-dare/run-now" method="post">
+          <button type="submit">Run Truth or Dare bot now</button>
+        </form>
+      </section>
+      <% } %>
+
+      <section class="card form-card">
+        <h3>Recent prompts in the pool</h3>
+        <% if (recent.length === 0) { %>
+        <p class="empty">No prompts yet — add some above.</p>
+        <% } %>
+        <ul class="tod-list">
+          <% recent.forEach(function(p) { %>
+          <li>
+            <span class="tod-tag <%= p.type === 'truth' ? 'tod-tag-truth' : 'tod-tag-dare' %>"><%= p.type %></span>
+            <span class="tod-list-text"><%= p.text %></span>
+            <span class="tod-meta">— @<%= p.submittedBy %></span>
+          </li>
+          <% }); %>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>
