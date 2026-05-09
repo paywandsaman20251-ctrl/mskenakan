@@ -5,12 +5,17 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const session = require("express-session");
+const MongoStore = require("connect-mongo");
 const bcrypt = require("bcryptjs");
 const multer = require("multer");
 
 dotenv.config();
 
 const app = express();
+
+if (process.env.TRUST_PROXY === "1") {
+  app.set("trust proxy", 1);
+}
 const uploadsDir = path.join(__dirname, "uploads");
 fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -65,15 +70,36 @@ function safeExternalImageUrl(raw) {
   }
 }
 
+/** Strip hostname from same-site upload URLs so /uploads/... works on every phone (never store localhost). */
+function normalizeUploadUrlReference(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  const s = raw.trim();
+  if (s.startsWith("/uploads/")) return s.split("?")[0];
+  if (!/^https?:\/\//i.test(s)) return s;
+  try {
+    const u = new URL(s);
+    if (u.pathname.startsWith("/uploads/")) return u.pathname.split("?")[0];
+  } catch (_e) {
+    return s;
+  }
+  return s;
+}
+
 /** Uploaded file wins; otherwise optional http(s) URL from the form. */
 function resolvePostImageUrl(req) {
   if (req.file) return `/uploads/${req.file.filename}`;
-  return safeExternalImageUrl(req.body.imageUrl);
+  const raw = String(req.body.imageUrl || "").trim();
+  const normalized = normalizeUploadUrlReference(raw);
+  if (normalized.startsWith("/uploads/")) return normalized;
+  return safeExternalImageUrl(normalized || raw);
 }
 
 function resolveMemberImageUrl(req) {
   if (req.file) return `/uploads/${req.file.filename}`;
-  return safeExternalImageUrl(req.body.imageUrl);
+  const raw = String(req.body.imageUrl || "").trim();
+  const normalized = normalizeUploadUrlReference(raw);
+  if (normalized.startsWith("/uploads/")) return normalized;
+  return safeExternalImageUrl(normalized || raw);
 }
 const port = process.env.PORT || 3000;
 const mongoUri = process.env.MONGODB_URI;
@@ -210,6 +236,21 @@ async function seedData() {
   if (todCount === 0) {
     await TodPrompt.insertMany(STARTER_TOD_PROMPTS);
   }
+
+  const posts = await Post.find({ imageUrl: { $ne: "" } }).select("_id imageUrl").lean();
+  for (const p of posts) {
+    const n = normalizeUploadUrlReference(p.imageUrl);
+    if (n && n !== p.imageUrl) {
+      await Post.updateOne({ _id: p._id }, { $set: { imageUrl: n } });
+    }
+  }
+  const membersWithImages = await Member.find({ imageUrl: { $ne: "" } }).select("_id imageUrl").lean();
+  for (const m of membersWithImages) {
+    const n = normalizeUploadUrlReference(m.imageUrl);
+    if (n && n !== m.imageUrl) {
+      await Member.updateOne({ _id: m._id }, { $set: { imageUrl: n } });
+    }
+  }
 }
 
 app.set("view engine", "ejs");
@@ -218,17 +259,37 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(uploadsDir));
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "msken-secret-key-change-this",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { httpOnly: true, maxAge: 1000 * 60 * 60 * 24 }
-  })
-);
+const sessionSecret = process.env.SESSION_SECRET || "msken-secret-key-change-this";
+const sessionCookieSecure = process.env.SESSION_COOKIE_SECURE === "true";
+
+const sessionOptions = {
+  secret: sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  rolling: true,
+  cookie: {
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24 * 14,
+    path: "/",
+    sameSite: "lax",
+    secure: sessionCookieSecure
+  }
+};
+
+if (mongoUri) {
+  sessionOptions.store = MongoStore.create({
+    mongoUrl: mongoUri,
+    ttl: 60 * 60 * 24 * 14,
+    mongoOptions: { serverSelectionTimeoutMS: 8000 }
+  });
+  console.log("[session] Using MongoDB to persist login sessions.");
+}
+
+app.use(session(sessionOptions));
 
 app.use(async (req, res, next) => {
   res.locals.todBotName = TOD_BOT_NAME;
+  res.locals.normalizeImageUrl = normalizeUploadUrlReference;
   res.locals.currentUser = null;
   if (!req.session.userId) return next();
 
@@ -434,8 +495,14 @@ app.post("/login", async (req, res) => {
     });
   }
 
-  req.session.userId = String(user._id);
-  return res.redirect("/community");
+  req.session.regenerate((regenerateErr) => {
+    if (regenerateErr) {
+      console.error(regenerateErr);
+      return res.status(500).render("login", { error: "Could not start session. Try again." });
+    }
+    req.session.userId = String(user._id);
+    return res.redirect("/community");
+  });
 });
 
 app.post("/logout", (req, res) => {
@@ -780,8 +847,8 @@ async function start() {
     }));
   }
 
-  app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${port} — use your computer's LAN IP (same port) on your phone.`);
     scheduleTruthOrDareBot();
   });
 }
