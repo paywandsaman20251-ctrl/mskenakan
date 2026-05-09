@@ -90,12 +90,6 @@ body {
   line-height: 1.6;
 }
 
-.joke-line {
-  margin-top: 0.8rem;
-  color: #ffd76a;
-  font-weight: 700;
-}
-
 .grid {
   display: grid;
   gap: 1rem;
