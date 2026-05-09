@@ -14,7 +14,7 @@
           <a href="/">Home</a>
           <a href="/community">Community</a>
           <% if (currentUser && currentUser.role === "admin") { %>
-          <a href="/admin/users">Verify Users</a>
+          <a href="/admin">Admin Panel</a>
           <% } %>
           <form action="/logout" method="post"><button type="submit">Logout</button></form>
         </div>
@@ -22,15 +22,19 @@
 
       <section class="card form-card">
         <h2>Community Feed</h2>
-        <p class="subtitle">Post text and optional image link (ImgBB).</p>
-        <form class="form" action="/community/posts" method="post">
+        <p class="subtitle">Post text and an optional image. Uploads are stored on the server so everyone can see them.</p>
+        <form class="form" action="/community/posts" method="post" enctype="multipart/form-data">
           <label>
             Post text
             <textarea name="text" required maxlength="500" rows="4"></textarea>
           </label>
           <label>
-            Image URL (optional)
-            <input name="imageUrl" type="url" placeholder="https://i.ibb.co/..." />
+            Image from your device (optional)
+            <input name="image" type="file" accept="image/jpeg,image/png,image/gif,image/webp" />
+          </label>
+          <label>
+            Or image link (optional, http/https)
+            <input name="imageUrl" type="url" placeholder="https://..." />
           </label>
           <button type="submit">Post</button>
         </form>

@@ -62,7 +62,7 @@
 
       <section class="card form-card">
         <h2>Add New Main Page Member Photo</h2>
-        <form action="/members" method="post" class="form">
+        <form action="/members" method="post" class="form" enctype="multipart/form-data">
           <label>
             Name
             <input required name="name" type="text" />
@@ -76,9 +76,14 @@
             </select>
           </label>
           <label>
-            Image URL
-            <input required name="imageUrl" type="url" placeholder="https://i.ibb.co/..." />
+            Image from device
+            <input name="image" type="file" accept="image/jpeg,image/png,image/gif,image/webp" />
           </label>
+          <label>
+            Or image URL (http/https)
+            <input name="imageUrl" type="url" placeholder="https://..." />
+          </label>
+          <p class="empty">Choose a file or paste a public image URL (one is required).</p>
           <label>
             Text on Image
             <input name="imageText" type="text" placeholder="Write text on image" />
@@ -103,7 +108,7 @@
             <figcaption>
               <strong><%= member.name %></strong>
               <span><%= member.role %></span>
-              <form action="/members/<%= member._id %>/update" method="post" class="mini-form">
+              <form action="/members/<%= member._id %>/update" method="post" class="mini-form" enctype="multipart/form-data">
                 <input name="name" type="text" value="<%= member.name %>" required />
                 <select name="role">
                   <% roles.forEach(function(role) { %>
@@ -112,8 +117,18 @@
                   </option>
                   <% }); %>
                 </select>
-                <input name="imageUrl" type="url" value="<%= member.imageUrl || "" %>" />
-                <input name="imageText" type="text" value="<%= member.imageText || "" %>" />
+                <label>
+                  New image file (optional)
+                  <input name="image" type="file" accept="image/jpeg,image/png,image/gif,image/webp" />
+                </label>
+                <label>
+                  Or image URL
+                  <input name="imageUrl" type="text" value="<%= member.imageUrl || "" %>" placeholder="https://..." />
+                </label>
+                <label>
+                  Text on image
+                  <input name="imageText" type="text" value="<%= member.imageText || "" %>" />
+                </label>
                 <button type="submit">Save</button>
               </form>
               <form action="/members/<%= member._id %>/remove-image" method="post">
