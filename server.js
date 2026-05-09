@@ -331,6 +331,20 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
+/** SSE subscribers — notified when a new community post is created */
+const communityStreamClients = new Set();
+
+function broadcastCommunityPost(payload) {
+  const line = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const clientRes of communityStreamClients) {
+    try {
+      clientRes.write(line);
+    } catch (_e) {
+      communityStreamClients.delete(clientRes);
+    }
+  }
+}
+
 async function runTruthOrDareBot() {
   try {
     let users;
@@ -364,21 +378,32 @@ async function runTruthOrDareBot() {
       text = text.slice(0, 497) + "...";
     }
 
+    let postId;
     if (useMemoryStore) {
+      postId = `tod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       memoryPosts.unshift({
-        _id: `tod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        _id: postId,
         authorName: TOD_BOT_NAME,
         text,
         imageUrl: "",
         createdAt: new Date()
       });
     } else {
-      await Post.create({
+      const doc = await Post.create({
         authorName: TOD_BOT_NAME,
         text,
         imageUrl: ""
       });
+      postId = String(doc._id);
     }
+
+    broadcastCommunityPost({
+      type: "new_post",
+      postId,
+      authorName: TOD_BOT_NAME,
+      textPreview: text.slice(0, 140),
+      hasImage: false
+    });
   } catch (err) {
     console.warn("[TruthOrDareBot]", err.message || err);
   }
@@ -518,6 +543,43 @@ app.get("/community", requireAuth, async (_req, res) => {
   res.render("community", { posts });
 });
 
+app.get("/community/stream", requireAuth, (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  let heartbeat;
+  const cleanup = () => {
+    if (heartbeat) clearInterval(heartbeat);
+    communityStreamClients.delete(res);
+    try {
+      res.end();
+    } catch (_e) {
+      /* ignore */
+    }
+  };
+
+  heartbeat = setInterval(() => {
+    try {
+      res.write(": ping\n\n");
+    } catch (_e) {
+      cleanup();
+    }
+  }, 25000);
+
+  communityStreamClients.add(res);
+  req.on("close", cleanup);
+  req.on("aborted", cleanup);
+
+  try {
+    res.write(`data: ${JSON.stringify({ type: "connected", at: Date.now() })}\n\n`);
+  } catch (_e) {
+    cleanup();
+  }
+});
+
 app.post("/community/posts", requireAuth, upload.single("image"), async (req, res) => {
   const text = req.body.text;
   if (!text || !String(text).trim()) {
@@ -527,21 +589,35 @@ app.post("/community/posts", requireAuth, upload.single("image"), async (req, re
 
   const imageUrl = resolvePostImageUrl(req);
   const authorName = res.locals.currentUser.username;
+  const textTrim = String(text).trim();
+
+  let postId;
   if (useMemoryStore) {
+    postId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     memoryPosts.unshift({
-      _id: `${Date.now()}`,
+      _id: postId,
       authorName,
-      text: String(text).trim(),
+      text: textTrim,
       imageUrl,
       createdAt: new Date()
     });
   } else {
-    await Post.create({
+    const doc = await Post.create({
       authorName,
-      text: String(text).trim(),
+      text: textTrim,
       imageUrl
     });
+    postId = String(doc._id);
   }
+
+  broadcastCommunityPost({
+    type: "new_post",
+    postId,
+    authorName,
+    textPreview: textTrim.slice(0, 140),
+    hasImage: Boolean(imageUrl && String(imageUrl).trim())
+  });
+
   return res.redirect("/community");
 });
 
